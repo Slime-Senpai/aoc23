@@ -1,2 +1,2 @@
 # aoc23
-The solution to the 2023 edition of Advent of Code 
+My solutions to the 2022's edition of [Advent of Code](https://adventofcode.com/2023).
