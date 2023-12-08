@@ -45,7 +45,7 @@ function mapSourceToDest(source, map) {
 		});
 
 		if (linesToUse.length == 0) {
-			mappedRanges.push({start: current.start, end: current.end});
+			mappedRanges.push({ start: current.start, end: current.end });
 		}
 
 		for (const line of linesToUse) {
@@ -71,7 +71,7 @@ function mapSourceToDest(source, map) {
 				// between
 				mappedRanges.push({ start: line.dest, end: line.dest + line.length });
 				unmappedRanges.push({ start: line.source + line.length + 1, end: current.end });
-				unmappedRanges.push({ start: current.start, end: line.source - 1 });				
+				unmappedRanges.push({ start: current.start, end: line.source - 1 });
 			}
 		}
 	}
@@ -83,14 +83,19 @@ let seedToLocation = [...seeds];
 
 for (const map of convertionMaps) {
 	// It takes a few seconds to compute so we'll log just every step to know we're moving forward still
-	console.log("map");
+	console.log('map');
 	seedToLocation = seedToLocation.flatMap((e) => {
-		return mapSourceToDest([e], map)
+		return mapSourceToDest([e], map);
 	});
 }
 
 // I have no idea why, but this has a bunch of 0 at the start. We'll just ignore those and find the first one we can
-console.log(seedToLocation.map(e => e.start).sort((a, b) => a - b).find(e => e != 0));
+console.log(
+	seedToLocation
+		.map((e) => e.start)
+		.sort((a, b) => a - b)
+		.find((e) => e != 0)
+);
 
 // After being done with this and looking at my code
 // I'm pretty sure I should have filtered somewhere for overlaps as there seems to be quite a lot
