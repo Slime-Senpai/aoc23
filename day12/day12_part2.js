@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const inputText = fs.readFileSync('./day12_input1.txt', { encoding: 'utf-8' });
+const inputText = fs.readFileSync('./day12_input.txt', { encoding: 'utf-8' });
 // 16990 for input1
 const lines = inputText
 	.split('\n')
@@ -50,54 +50,131 @@ const lines = inputText
 
 let total = 0;
 for (const line of lines) {
-	//console.log(line);
-	const nbPermutationsForLine = getNbGoodPermutations(0, line.string.charAt(0), line, [], 0, '');
+	/**
+	 * @type [{groups: number, nbBroken: number, permutations: number}]
+	 */
+	let cache = [{ groups: 0, nbBroken: 0, permutations: 1 }];
 
-	console.log(nbPermutationsForLine);
-	total += nbPermutationsForLine;
+	for (const spring of line.splitSprings) {
+		switch (spring) {
+			case '#':
+				// We add another brokenspring in the current group
+				cache.forEach((e) => e.nbBroken++);
+				break;
+			case '.':
+				const toRemove = [];
+				cache.forEach((e) => {
+					// If we are currently tracking a group, we need to count it more
+					if (e.nbBroken > 0) {
+						// If it doesn't match the number of springs for that group, that's bad
+						if (line.springGroups[e.groups] !== e.nbBroken) {
+							toRemove.push(e);
+						} else {
+							e.groups++;
+							e.nbBroken = 0;
+						}
+					}
+				});
+
+				for (const remove of toRemove) {
+					cache.splice(cache.indexOf(remove), 1);
+				}
+				break;
+			case '?':
+				const toAdd = [];
+				cache.forEach((e) => {
+					// If we are in a group, we can know what is the state of the spring
+					if (e.nbBroken > 0) {
+						if (line.springGroups[e.groups] === e.nbBroken) {
+							// If we have reached the number of broken for that group, we take it as a '.'
+							e.groups++;
+							e.nbBroken = 0;
+						} else {
+							// Otherwise, we take it as a '#'
+							e.nbBroken++;
+						}
+						return;
+					}
+					// If we're not in a group, either we can start a new group, or continue without a group
+					// We copy the current in a new possible way
+					toAdd.push({ ...e });
+					// We create a new group in the current
+					e.nbBroken++;
+				});
+				cache.push(...toAdd);
+				break;
+		}
+
+		cache = cache.filter((e) => {
+			// We can filter out the ones that have too many groups
+			if (e.groups > line.springGroups.length) {
+				return false;
+			}
+
+			// We can filter the ones that have too many broken for that group
+			if (e.nbBroken > line.springGroups[e.groups]) {
+				return false;
+			}
+
+			return true;
+		});
+
+		// We can clear the duplicates and count them as permutations, this happens for example when we have ..#. and .#.. We have two permutations with one group
+		// We don't need to keep calculating those differently as they'll act the same afterwards. We can just note that they are two of them and calculate the rest once
+		const newCache = [];
+		const toIgnore = [];
+		for (let i = 0; i < cache.length; i++) {
+			const group = cache[i];
+			if (toIgnore.find((e) => e.groups === group.groups && e.nbBroken === group.nbBroken) !== undefined) {
+				continue;
+			}
+			for (let j = 0; j < cache.length; j++) {
+				if (i === j) {
+					continue;
+				}
+
+				const group2 = cache[j];
+				if (group.groups === group2.groups && group.nbBroken === group2.nbBroken) {
+					// If we find another similar group, we merge them
+					group.permutations += group2.permutations;
+					// We'll ignore the other group
+					toIgnore.push(group2);
+					break;
+				}
+			}
+			// We save that group
+			newCache.push(group);
+		}
+
+		cache = newCache;
+	}
+
+	const toRemove = [];
+	cache.forEach((e) => {
+		// If we are currently tracking a group, we need to count it more
+		if (e.nbBroken > 0) {
+			// If it doesn't match the number of springs for that group, that's bad
+			if (line.springGroups[e.groups] !== e.nbBroken) {
+				toRemove.push(e);
+				return;
+			}
+
+			e.groups++;
+			e.nbBroken = 0;
+		}
+
+		// If the number of groups is bad, we remove it
+		if (e.groups !== line.springGroups.length) {
+			toRemove.push(e);
+		}
+	});
+
+	for (const remove of toRemove) {
+		cache.splice(cache.indexOf(remove), 1);
+	}
+
+	for (const permutation of cache) {
+		total += permutation.permutations;
+	}
 }
 console.log('total', total);
-
-/**
- * @param {number} index
- * @param {string} currChar
- * @param {{nbBroken: number,nbWorking: number,nbUnknown: number,knownBroken: number,total: number,springGroups: number[],splitSprings: string[],string: string}} line
- * @param {number[]} groups
- * @param {number} nbBroken
- */
-function getNbGoodPermutations(index, currChar, line, groups, nbBroken, str) {
-	switch (currChar) {
-		case '#':
-			nbBroken++;
-			break;
-		case '.':
-			if (index > 0 && str.charAt(index - 1) === '#') {
-				groups.push(nbBroken);
-				nbBroken = 0;
-			}
-			break;
-		case '?':
-			const nbForBroken = getNbGoodPermutations(index, '#', line, [...groups], nbBroken, str);
-			const nbForWorking = getNbGoodPermutations(index, '.', line, [...groups], nbBroken, str);
-			return nbForBroken + nbForWorking;
-	}
-
-	// If a group is different, it means there is no good permutations for that group
-	if (groups.some((e, i) => e !== line.springGroups[i]) || nbBroken > line.springGroups[groups.length]) {
-		return 0;
-	}
-
-	if (index === line.string.length - 1) {
-		if (nbBroken > 0) {
-			groups.push(nbBroken);
-		}
-		// If we have all the groups filled with the good amount (checked above, we can return 1, otherwise 0)
-		if (groups.every((e, i) => e === line.springGroups[i]) && groups.length === line.springGroups.length) {
-			return 1;
-		} else {
-			return 0;
-		}
-	}
-
-	return getNbGoodPermutations(index + 1, line.string.charAt(index + 1), line, [...groups], nbBroken, str + currChar);
-}
